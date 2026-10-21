@@ -1,8 +1,12 @@
 # Nurse Orientation Tracker (משוב משמרת חניכה)
 
+## 👉 Open the tracker: **https://dandan64.github.io/nurse-orientation-tracker/**
+
 A web page for the LTAC respiratory unit. After every orientation shift, the senior nurse (החונכת) fills in the shift feedback form. Every form is saved as a file **in a folder on the ward PC**. The page builds a progress summary with charts, so the nurse in charge can follow each new nurse and record a decision.
 
-**Privacy model:** the website only delivers the page (code). All data is read and written in a local folder through the browser's File System Access API. Nothing is uploaded, and the page's security policy blocks it from contacting any other site.
+**The ward PC needs nothing installed: no Python, no exe.** Only Edge or Chrome and the link above.
+
+**Privacy model:** the website (GitHub Pages) only delivers the page code. All data is read and written in a folder on the ward PC through the browser. Nothing is uploaded, and the page's security policy blocks it from contacting any other site.
 
 ---
 
@@ -10,7 +14,7 @@ A web page for the LTAC respiratory unit. After every orientation shift, the sen
 
 ### Ward PC: first time (about 2 minutes)
 1. Open **Microsoft Edge** or **Google Chrome** (Firefox can't write to local folders).
-2. Go to the site link (GitHub Pages) and bookmark it. Optionally: Edge menu > Apps > Install this site as an app.
+2. Go to **https://dandan64.github.io/nurse-orientation-tracker/** and bookmark it. Optionally: Edge menu > Apps > Install this site as an app (opens like a program, with its own icon).
 3. Create an empty folder, for example `Documents\NurseTracker-data`.
 4. On the page, click **בחירת תיקיית נתונים**, choose that folder and allow "edit files".
    - If you pick a folder that already has other files and no tracker data, the page asks before using it (protects against choosing `Documents` itself).
@@ -25,9 +29,10 @@ A web page for the LTAC respiratory unit. After every orientation shift, the sen
 ### Backups
 Copy the data folder regularly (USB or a network folder). The data exists **only** in that folder.
 
-### Developer
-- Run locally: `python -m http.server 8000 --bind 127.0.0.1`, then open http://127.0.0.1:8000. `localhost` counts as secure, so the folder picker works.
-- Test: `python test_web.py` (see section 8).
+### Developer only (not needed on the ward)
+Python is used only on the developer's PC, to test changes before publishing:
+- Try a change locally: `python -m http.server 8000 --bind 127.0.0.1`, then open http://127.0.0.1:8000. `localhost` counts as secure, so the folder picker works.
+- Test: `python test_web.py` (local copy) or `python test_web.py https://dandan64.github.io/nurse-orientation-tracker/` (live site). See section 8.
 - Publish: push to `main`. GitHub Pages serves the repo root; the ward gets the new version on its next page load.
 - The old exe version is kept locally in `legacy-exe/` (not published), with its own README.
 
@@ -201,7 +206,7 @@ app.js   "המשוב נשמר ✓" + "טעות? ביטול הטופס הזה" bu
 
 ## 8. Testing
 
-One-time setup: `pip install playwright` and `playwright install chromium`.
+Developer PC only (the ward never runs tests or Python). One-time setup: `pip install playwright` and `playwright install chromium`.
 ```
 python test_web.py
 ```
