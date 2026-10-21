@@ -1,0 +1,12 @@
+# Never publish data or anything private. The website holds code only.
+data/
+demo/
+*NurseTracker-data*/
+*.pdf
+legacy-exe/
+test-screenshots/
+graphify-out/
+.agents/
+.claude/
+skills-lock.json
+__pycache__/

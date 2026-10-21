@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>משוב משמרת חניכה</title>
+<!-- No data ever leaves this PC: the page may only load its own files and cannot send anything anywhere. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <p class="kicker">יחידה נשימתית · LTAC · אוריינטציה לאחות חדשה</p>
+  <h1>משוב משמרת חניכה</h1>
+  <p class="muted">טופס קצר למילוי בסוף כל משמרת חניכה, בידי האחות החונכת. בלשונית הסיכום רואים את התמונה המצטברת לכל אחות חדשה.</p>
+
+  <p class="msg err" id="testbanner" hidden>מצב בדיקה: הנתונים נשמרים בתוך הדפדפן ולא בתיקייה. לא לשימוש במחלקה.</p>
+
+  <!-- ===== First use / reconnect: pick the data folder on this PC ===== -->
+  <section id="nosupport" class="card" hidden>
+    <h3>הדפדפן הזה לא נתמך</h3>
+    <p>יש לפתוח את הקישור ב-<b>Microsoft Edge</b> או ב-<b>Google Chrome</b> במחשב המחלקה.</p>
+  </section>
+  <section id="connect" class="card" hidden>
+    <h3>חיבור לתיקיית הנתונים</h3>
+    <p>כל המשובים נשמרים <b>רק במחשב הזה</b>, בתיקייה שבוחרים כאן. שום מידע לא נשלח לאינטרנט.</p>
+    <p class="muted">בפעם הראשונה: צרי תיקייה ריקה, למשל <b>Documents\NurseTracker-data</b>, ובחרי אותה. בפעמים הבאות הדפדפן זוכר אותה, ולפעמים מבקש אישור בלחיצה אחת.</p>
+    <button type="button" class="btn" id="reconnect" hidden></button>
+    <button type="button" class="btn ghost" id="pickfolder">בחירת תיקיית נתונים</button>
+    <span class="msg" id="cmsg" role="status"></span>
+  </section>
+
+  <div id="app" hidden>
+  <p class="muted folder-bar">תיקיית נתונים: <b id="foldername"></b>
+    <button type="button" class="btn ghost sm" id="change">החלפה</button></p>
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="form">מילוי משוב</button>
+    <button role="tab" aria-selected="false" data-tab="summary">סיכום והחלטה</button>
+    <button role="tab" aria-selected="false" data-tab="manage">ניהול אחיות</button>
+  </nav>
+
+  <!-- ===== Form tab ===== -->
+  <form id="form" data-panel="form">
+    <div class="grid3">
+      <label class="f">שם האחות החדשה
+        <span class="row"><select name="trainee_id" data-kind="trainees" required></select>
+        <button type="button" class="btn ghost add" data-add="trainees">+ חדשה</button></span>
+      </label>
+      <label class="f">שם האחות החונכת
+        <span class="row"><select name="senior_id" data-kind="seniors" required></select>
+        <button type="button" class="btn ghost add" data-add="seniors">+ חדשה</button></span>
+      </label>
+      <label class="f">תאריך המשמרת <input type="date" name="shift_date" required>
+        <small class="muted">משמרת לילה: התאריך שבו המשמרת התחילה</small></label>
+    </div>
+    <div class="grid3">
+      <label class="f">משמרת
+        <select name="shift" required><option>בוקר</option><option>ערב</option><option>לילה</option></select>
+      </label>
+      <label class="f">שבוע באוריינטציה <input type="number" name="week" min="1" max="52" placeholder="למשל 3" required></label>
+    </div>
+    <p class="scale-note">סולם: 1 = לא בטוח / לא מבצעת · 2 = זקוקה להנחיה צמודה · 3 = עצמאית ברוב המקרים, צריכה גיבוי · 4 = עצמאית ובטוחה · "לא נצפה" אם לא היה רלוונטי במשמרת.</p>
+
+    <div id="skills"></div>
+
+    <fieldset class="card" style="margin:0 0 14px">
+      <div class="q-head"><span class="q-num">6</span><h3>המלצה להמשך</h3></div>
+      <p class="muted">על סמך המשמרת הזו בלבד.</p>
+      <div class="opts recs" id="recs"></div>
+      <label class="f" style="margin-top:14px">חוזקה בולטת / נקודה לשיפור (לא חובה)
+        <textarea name="note" rows="3" maxlength="2000"></textarea>
+      </label>
+    </fieldset>
+
+    <button class="btn" id="save" disabled>שמירת המשוב</button>
+    <button type="button" class="btn ghost" id="clear">ניקוי הטופס</button><span class="msg" id="msg" role="status"></span>
+  </form>
+
+  <!-- ===== Summary tab ===== -->
+  <section data-panel="summary" hidden>
+    <label class="f" style="max-width:320px;margin-bottom:16px">בחירת אחות חדשה
+      <select id="pick" data-kind="trainees"></select>
+    </label>
+    <div id="dash"></div>
+    <form id="decide" class="card" hidden>
+      <h3>רישום החלטה</h3>
+      <p class="muted">ההחלטה נשמרת להיסטוריה ולא מוחקת החלטות קודמות.</p>
+      <div class="opts recs" id="decs"></div>
+      <div class="grid3" style="margin-top:14px">
+        <label class="f">שם המחליטה <select name="decider_id" data-kind="seniors" required></select></label>
+      </div>
+      <label class="f">הערה (לא חובה) <textarea name="note" rows="2" maxlength="2000"></textarea></label>
+      <p class="muted" id="filepath"></p>
+      <button class="btn" id="dsave" disabled>שמירת ההחלטה</button><span class="msg" id="dmsg" role="status"></span>
+    </form>
+  </section>
+
+  <!-- ===== Manage nurses tab ===== -->
+  <section data-panel="manage" class="manage" hidden>
+    <p class="muted">שינוי שם לא משנה את התיקייה ואת הנתונים. אחות שסיימה / חונכת לא פעילה מוסתרת מהטופס, וכל הנתונים שלה נשמרים.</p>
+    <div class="card"><h3>אחיות חדשות</h3><div class="table-wrap"><table id="m-trainees"></table></div></div>
+    <div class="card"><h3>אחיות חונכות</h3><div class="table-wrap"><table id="m-seniors"></table></div></div>
+    <span class="msg" id="mmsg" role="status"></span>
+  </section>
+  </div>
+</main>
+
+<script src="charts.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
