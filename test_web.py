@@ -1,6 +1,7 @@
 """Real-browser test of the web version (dev PC only - needs: pip install playwright && playwright install chromium).
 
-Run: python test_web.py
+Run: python test_web.py              (local copy)
+     python test_web.py <site url>   (the published GitHub Pages site)
 Serves this folder on http://127.0.0.1 (a secure context, like GitHub Pages), opens the page with ?test-opfs so the
 data goes to the browser's private test folder (Playwright cannot click the Windows folder picker), then fills
 forms like a nurse and checks the saved files, summaries, corrections, cancels, nurse management, drafts,
@@ -304,6 +305,11 @@ def run(url):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    if len(sys.argv) > 1:  # test the published site: python test_web.py https://<user>.github.io/<repo>/
+        print(f"Testing {sys.argv[1]}")
+        run(sys.argv[1].rstrip("/") + "/index.html?test-opfs")
+        print(f"\n{'ALL PASSED' if not check.failed else f'{check.failed} FAILED'} - screenshots in {SHOTS}")
+        sys.exit(1 if check.failed else 0)
     port = free_port()
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1", "--directory", str(ROOT)],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
