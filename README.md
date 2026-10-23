@@ -6,6 +6,8 @@ A web page for the LTAC respiratory unit. After every orientation shift, the sen
 
 **The ward PC needs nothing installed: no Python, no exe.** Only Edge or Chrome and the link above.
 
+📖 **User guide (Hebrew), for the nurses:** https://dandan64.github.io/nurse-orientation-tracker/guide.html
+
 **Privacy model:** the website (GitHub Pages) only delivers the page code. All data is read and written in a folder on the ward PC through the browser. Nothing is uploaded, and the page's security policy blocks it from contacting any other site.
 
 **Admin password:** "סיכום והחלטה" and "ניהול אחיות" are locked with a password the head nurse sets on first use. The form stays open to all seniors. Data files are **scrambled**: unreadable in File Explorer. The password can never cause data loss: a forgotten password is replaced with the printed recovery code.
@@ -59,6 +61,8 @@ charts.js      shared: labels and codes (META), SVG charts, dashboard renderer
 style.css      styles
 vendor/        html2canvas + jsPDF, copied in (pinned versions, hash-checked), used only for the PDF export
 sw.js          offline copy of the page files (no data)
+guide.html     user guide in Hebrew for seniors and the head nurse (linked from the page header)
+guide/         screenshots for the guide (fictional demo names)
 test_web.py    real-browser test (dev only)
 README.md, improvements.md   documentation
 ```

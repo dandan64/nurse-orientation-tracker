@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מדריך שימוש - משוב משמרת חניכה</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 860px; }
+  h2 { margin: 40px 0 8px; padding-top: 12px; border-top: 2px solid var(--accent); color: var(--accent); }
+  h3 { margin: 26px 0 8px; }
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+  .roles a { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: inherit; text-decoration: none; }
+  .roles a:hover { border-color: var(--accent); }
+  .roles b { display: block; font-size: 18px; color: var(--accent); margin-bottom: 4px; }
+  ol.steps { padding-inline-start: 22px; }
+  ol.steps > li { margin: 0 0 14px; }
+  figure { margin: 10px 0 18px; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  figcaption { font-size: 13px; color: #666; margin-top: 4px; }
+  .note { border-inline-start: 4px solid var(--accent); background: #eef6f5; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  .warn { border-inline-start: 4px solid #d03b3b; background: #fbeeee; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  .btnlike { display: inline-block; padding: 1px 8px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .toc { columns: 2; column-gap: 24px; padding-inline-start: 18px; }
+  .toc li { margin-bottom: 4px; }
+  table.faq td:first-child { font-weight: 600; width: 40%; }
+  @media (max-width: 560px) { .toc { columns: 1; } }
+  @media print {
+    body { background: #fff; }
+    h2 { break-before: page; }
+    .roles, .backlink { display: none; }
+    figure { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="kicker">יחידה נשימתית · LTAC · אוריינטציה לאחות חדשה</p>
+  <h1>מדריך שימוש: משוב משמרת חניכה</h1>
+  <p class="muted">איך ממלאים משוב בסוף משמרת חניכה, ואיך האחות האחראית רואה את ההתקדמות ומחליטה. <a class="backlink" href="index.html">← חזרה לדף המשוב</a></p>
+
+  <div class="note"><b>פרטיות:</b> כל המשובים נשמרים <b>רק במחשב המחלקה</b>, בתיקייה שנבחרה. שום מידע לא נשלח לאינטרנט. האתר רק מציג את הדף.</div>
+
+  <div class="roles">
+    <a href="#senior"><b>אני אחות חונכת</b>מילוי משוב בסוף משמרת. 2 דקות.</a>
+    <a href="#admin"><b>אני האחות האחראית</b>סיכום, החלטה, סיסמה, PDF וניהול אחיות.</a>
+  </div>
+
+  <ul class="toc">
+    <li><a href="#senior">מילוי משוב (חונכת)</a></li>
+    <li><a href="#mistakes">טעיתי - מה עושים?</a></li>
+    <li><a href="#setup">התקנה ראשונה במחשב המחלקה</a></li>
+    <li><a href="#password">סיסמת מנהלת וקוד שחזור</a></li>
+    <li><a href="#summary">סיכום התקדמות</a></li>
+    <li><a href="#decide">רישום החלטה</a></li>
+    <li><a href="#pdf">PDF לתיק האישי</a></li>
+    <li><a href="#manage">ניהול אחיות</a></li>
+    <li><a href="#backup">גיבוי</a></li>
+    <li><a href="#faq">שאלות ותקלות</a></li>
+  </ul>
+
+  <!-- ================= SENIOR ================= -->
+  <h2 id="senior">מילוי משוב בסוף משמרת (אחות חונכת)</h2>
+  <p>פותחים את הדף מהסימנייה בדפדפן <b>Edge</b> (או Chrome). הלשונית <b>מילוי משוב</b> פתוחה לכולן, בלי סיסמה.</p>
+
+  <ol class="steps">
+    <li><b>שם האחות החדשה</b> ו<b>שם האחות החונכת</b>: בוחרים מהרשימה.
+      אם השם עוד לא קיים - לוחצים <span class="btnlike">+ חדשה</span> ומקלידים אותו (פעם אחת בלבד, אחר כך הוא ברשימה).</li>
+    <li><b>תאריך המשמרת</b>: מתמלא לבד בתאריך של היום.
+      <div class="note"><b>משמרת לילה:</b> התאריך הוא היום שבו המשמרת <b>התחילה</b>. אם ממלאים בבוקר אחרי לילה ובוחרים "לילה", הדף משנה לבד לתאריך של אתמול.</div></li>
+    <li><b>משמרת</b> (בוקר / ערב / לילה) ו<b>שבוע באוריינטציה</b> (מספר, למשל 3).</li>
+    <li><b>5 הסעיפים</b>: לכל סעיף לוחצים על ציון אחד:
+      <b>1</b> לא בטוח · <b>2</b> הנחיה צמודה · <b>3</b> עצמאית, צריכה גיבוי · <b>4</b> עצמאית ובטוחה ·
+      <b>—</b> <b>לא נצפה</b> אם הנושא לא היה רלוונטי במשמרת (זה לא מוריד ציון).</li>
+  </ol>
+  <figure><img src="guide/02-form-top.png" alt="ראש הטופס: שמות, תאריך, משמרת, שבוע וסעיף ראשון" loading="lazy">
+    <figcaption>ראש הטופס, וסעיף 1 עם ציון 3 מסומן.</figcaption></figure>
+
+  <ol class="steps" start="5">
+    <li><b>המלצה להמשך</b>: על סמך המשמרת הזו בלבד. חובה לבחור.</li>
+    <li><b>חוזקה בולטת / נקודה לשיפור</b>: לא חובה, אבל מאוד עוזר לחונכת הבאה. כדאי לכתוב משפט אחד.</li>
+  </ol>
+  <figure><img src="guide/03-recommendation.png" alt="המלצה להמשך והערה" loading="lazy"></figure>
+
+  <ol class="steps" start="7">
+    <li>לוחצים <span class="btnlike">שמירת המשוב</span>. הכפתור אפור עד שכל השדות החובה מולאו.
+      מופיע <b>"המשוב נשמר ✓"</b> - וזהו.</li>
+  </ol>
+  <figure><img src="guide/04-saved.png" alt="הודעת המשוב נשמר" loading="lazy"></figure>
+
+  <div class="note"><b>נקטעתם באמצע?</b> הטופס נשמר כטיוטה. גם אם הדף נסגר או רוענן, הוא חוזר כמו שהיה, עם ההודעה "טיוטה שלא נשמרה שוחזרה".
+    אם זו טיוטה של מישהי אחרת - לוחצים <span class="btnlike">ניקוי הטופס</span>.</div>
+
+  <h3 id="mistakes">טעיתי - מה עושים?</h3>
+  <table class="faq"><tbody>
+    <tr><td>שמרתי ומיד שמתי לב לטעות</td><td>לוחצים <span class="btnlike">טעות? ביטול הטופס הזה</span> ליד ההודעה, ואז ממלאים מחדש.</td></tr>
+    <tr><td>טעיתי בציון / בהערה</td><td>ממלאים שוב את אותה אחות, <b>אותו תאריך ואותה משמרת</b>. הדף ישאל "להחליף?" - עונים כן. הטופס החדש מחליף את הישן.</td></tr>
+    <tr><td>הדף שואל "כבר קיים משוב למשמרת זו"</td><td>מישהי כבר מילאה את המשמרת הזו. לבדוק שבחרתם תאריך ומשמרת נכונים. להחליף רק אם בטוחים.</td></tr>
+    <tr><td>בחרתי תאריך לא נכון ושמרתי</td><td>לבקש מהאחות האחראית לבטל את הטופס (ראו <a href="#decide">ביטול טופס</a>), ולמלא מחדש עם התאריך הנכון.</td></tr>
+  </tbody></table>
+
+  <!-- ================= ADMIN ================= -->
+  <h2 id="admin">האחות האחראית</h2>
+
+  <h3 id="setup">התקנה ראשונה במחשב המחלקה (פעם אחת)</h3>
+  <ol class="steps">
+    <li>פותחים את הקישור בדפדפן <b>Microsoft Edge</b> ושומרים כסימנייה (כוכב בשורת הכתובת).
+      אפשר גם: תפריט ⋯ › אפליקציות › התקנת אתר זה כאפליקציה - ואז יש לו סמל משלו בשולחן העבודה.</li>
+    <li>יוצרים תיקייה ריקה, למשל <b>מסמכים › NurseTracker-data</b>.</li>
+    <li>בדף לוחצים <span class="btnlike">בחירת תיקיית נתונים</span>, בוחרים את התיקייה, ומאשרים "עריכת קבצים".</li>
+  </ol>
+  <figure><img src="guide/01-connect.png" alt="מסך בחירת תיקיית נתונים" loading="lazy">
+    <figcaption>המסך שמופיע בפעם הראשונה.</figcaption></figure>
+  <div class="note">אחרי הפעלה מחדש של המחשב הדף יכול להציג <span class="btnlike">חיבור לתיקייה "NurseTracker-data"</span> - לוחצים פעם אחת ומאשרים. בגרסאות חדשות של Edge אפשר לבחור "אפשר בכל ביקור" ואז זה לא חוזר.</div>
+
+  <h3 id="password">סיסמת מנהלת וקוד שחזור (פעם ראשונה)</h3>
+  <p>הלשוניות <b>סיכום והחלטה</b> ו<b>ניהול אחיות</b> נעולות בסיסמה. טופס המשוב נשאר פתוח לכל החונכות.</p>
+  <ol class="steps">
+    <li>לוחצים על <b>סיכום והחלטה</b>. בפעם הראשונה מופיע מסך <b>הגדרת סיסמת מנהלת</b>. בוחרים סיסמה (לפחות 6 תווים) ומקלידים אותה פעמיים.</li>
+  </ol>
+  <figure><img src="guide/05-setup.png" alt="הגדרת סיסמת מנהלת" loading="lazy"></figure>
+  <ol class="steps" start="2">
+    <li>מופיע <b>קוד שחזור</b>. לוחצים <span class="btnlike">הדפסת הקוד</span>. שומרים עותק אחד <b>בכספת המחלקה</b> ועותק שני <b>אצל הנהלת הסיעוד</b>.</li>
+    <li>מקלידים את הקוד בשדה למטה (כדי לוודא שנרשם נכון) ולוחצים <span class="btnlike">סיום</span>.</li>
+  </ol>
+  <figure><img src="guide/06-code.png" alt="קוד שחזור" loading="lazy"><figcaption>הקוד בתמונה הוא לדוגמה בלבד.</figcaption></figure>
+
+  <div class="note"><b>שכחתי את הסיסמה:</b> במסך הנעילה לוחצים <span class="btnlike">שכחתי סיסמה</span>, מקלידים את קוד השחזור ובוחרים סיסמה חדשה. <b>הנתונים לא נפגעים</b> - סיסמה שנשכחה לעולם לא מוחקת מידע.</div>
+  <figure><img src="guide/15-unlock.png" alt="מסך אזור המנהלת נעול" loading="lazy"><figcaption>כך נראה האזור כשהוא נעול.</figcaption></figure>
+
+  <p><b>נעילה:</b> כשמסיימים, לוחצים <span class="btnlike">🔒 נעילת אזור המנהלת</span> בראש הדף. האזור ננעל גם לבד אחרי <b>10 דקות</b> בלי שימוש, וכשסוגרים או מרעננים את הדף.</p>
+  <figure><img src="guide/07-lockbar.png" alt="כפתור נעילת אזור המנהלת" loading="lazy"></figure>
+
+  <h3 id="summary">סיכום התקדמות של אחות חדשה</h3>
+  <p>בלשונית <b>סיכום והחלטה</b> בוחרים אחות מהרשימה.</p>
+  <figure><img src="guide/08-stats.png" alt="משבצות סיכום" loading="lazy">
+    <figcaption>למעלה: מספר משמרות, שבוע נוכחי, מספר חונכות, ההמלצה האחרונה, <b>תחום לחיזוק</b> (הסעיף עם הממוצע הנמוך ב-3 המשמרות האחרונות) וההחלטה האחרונה.</figcaption></figure>
+
+  <p><b>מפת ההתקדמות</b> היא הגרף העיקרי:</p>
+  <ul>
+    <li>כל <b>שורה</b> היא סעיף, כל <b>עמודה</b> היא משמרת. המשמרת הישנה בימין, החדשה בשמאל.</li>
+    <li><b>כהה יותר = עצמאית יותר</b>. המספר כתוב בכל משבצת. "—" = לא נצפה.</li>
+    <li>מתחת: <b>ממוצע</b> המשמרת ו<b>ההמלצה</b> של החונכת (✓ להמשיך · ! חיזוק · ? חשש · ✕ לא מומלץ).</li>
+    <li>מעבר עם העכבר על משבצת מראה מי החונכת ובאיזה שבוע.</li>
+    <li>מה מחפשים: שורות שמתכהות משמאל לימין = שיפור. שורה שנשארת בהירה = נושא לחיזוק.</li>
+  </ul>
+  <figure><img src="guide/09-heatmap.png" alt="מפת התקדמות לפי תחום" loading="lazy"></figure>
+  <figure><img src="guide/10-average.png" alt="גרף ממוצע כללי למשמרת" loading="lazy">
+    <figcaption>גרף הממוצע. הקו המקווקו = 3 (עצמאית ברוב המקרים, צריכה גיבוי).</figcaption></figure>
+  <p>מתחת לגרפים: טבלת סיכום לכל סעיף (ציון ראשון, אחרון, ממוצע 3 אחרונות, שינוי), <b>הערות החונכות</b> מהחדשה לישנה, והיסטוריית ההחלטות.</p>
+  <div class="warn">אם מופיעה שורה אדומה <b>"קובץ פגום"</b> - מישהו שינה קובץ בתיקייה ידנית. הקובץ הזה לא נכלל בסיכום; כל השאר תקין. לשחזר מגיבוי אם צריך.</div>
+
+  <h3 id="decide">רישום החלטה וביטול טופס</h3>
+  <p>בתחתית הסיכום: בוחרים החלטה (סיום / המשך / הארכת אוריינטציה / לדיון), שם המחליטה והערה, ולוחצים <span class="btnlike">שמירת ההחלטה</span>. החלטות קודמות לא נמחקות - יש היסטוריה מלאה.</p>
+  <figure><img src="guide/11-decide.png" alt="טופס רישום החלטה" loading="lazy"></figure>
+  <p><b>ביטול טופס</b> (למשל תאריך שגוי): פותחים את <b>כל המשמרות (טבלה)</b> בתחתית, ולוחצים <span class="btnlike">ביטול טופס</span> בשורה המתאימה. הטופס יוצא מהסיכום ומהגרפים, אבל לא נמחק מהארכיון.</p>
+  <figure><img src="guide/12-all-shifts.png" alt="טבלת כל המשמרות עם כפתורי ביטול" loading="lazy"></figure>
+
+  <h3 id="pdf">PDF לתיק האישי</h3>
+  <p>בוחרים אחות ולוחצים <span class="btnlike">ייצוא PDF מוגן בסיסמה</span>. הקובץ נשמר בתיקיית <b>הורדות</b>, ונפתח רק עם <b>סיסמת המנהלת</b> (הסיסמה שהייתה בזמן הייצוא). אפשר להדפיס אותו או לצרף לתיק.</p>
+  <figure><img src="guide/13-pdf-button.png" alt="כפתור ייצוא PDF" loading="lazy"></figure>
+
+  <h3 id="manage">ניהול אחיות</h3>
+  <ul>
+    <li><b>תיקון שם</b>: משנים את השם ולוחצים <span class="btnlike">שמירה</span>. כל הטפסים הקודמים נשארים מחוברים לאותה אחות.</li>
+    <li><b>סיימה אוריינטציה</b> (אחות חדשה) / <b>לא פעילה</b> (חונכת): מסמנים ושומרים. השם יורד מרשימות הטופס, אבל כל הנתונים נשמרים ואפשר לראות אותם בסיכום.</li>
+    <li><b>החלפת סיסמת המנהלת</b>: בתחתית הלשונית. קוד השחזור נשאר אותו קוד.</li>
+  </ul>
+  <figure><img src="guide/14-manage.png" alt="ניהול אחיות חונכות" loading="lazy"></figure>
+
+  <h3 id="backup">גיבוי</h3>
+  <p>הנתונים קיימים <b>רק</b> בתיקיית הנתונים במחשב המחלקה. <b>פעם בשבוע</b> מעתיקים את כל התיקייה (למשל NurseTracker-data) לדיסק-און-קי או לתיקיית רשת של בית החולים.</p>
+  <p class="muted">הקבצים בתיקייה מעורבלים - פתיחה שלהם בפנקס רשימות מראה ג'יבריש. זה תקין, וזה מונע מעיון מקרי בהערכות.</p>
+
+  <!-- ================= FAQ ================= -->
+  <h2 id="faq">שאלות ותקלות</h2>
+  <table class="faq"><tbody>
+    <tr><td>"הדפדפן הזה לא נתמך"</td><td>לפתוח את הקישור ב-Edge או ב-Chrome (לא Firefox).</td></tr>
+    <tr><td>הדף מבקש לבחור תיקייה שוב</td><td>התיקייה הועברה או ששונה שמה, או שנתוני הדפדפן נמחקו. לבחור שוב את אותה תיקייה - הנתונים עדיין שם.</td></tr>
+    <tr><td>הדף לא נפתח בכלל</td><td>אין אינטרנט והדף לא נפתח במחשב הזה עם אינטרנט קודם, או שרשת בית החולים חוסמת את האתר. לפנות למחשוב.</td></tr>
+    <tr><td>אין אינטרנט</td><td>אם הדף כבר נפתח פעם במחשב הזה, הוא נפתח גם בלי אינטרנט, והשמירה עובדת כרגיל.</td></tr>
+    <tr><td>שכחתי סיסמה</td><td>במסך הנעילה: <span class="btnlike">שכחתי סיסמה</span> › קוד השחזור › סיסמה חדשה.</td></tr>
+    <tr><td>אבדו גם הסיסמה וגם קוד השחזור</td><td>הנתונים לא אבדו. לפנות למי שתחזק את המערכת.</td></tr>
+    <tr><td>שם של אחות כתוב לא נכון</td><td>האחות האחראית מתקנת בלשונית <a href="#manage">ניהול אחיות</a>.</td></tr>
+    <tr><td>האם המידע עולה לאינטרנט?</td><td>לא. הכול נשמר רק במחשב המחלקה. הדף חסום טכנית מלשלוח מידע לכל אתר.</td></tr>
+  </tbody></table>
+
+  <p class="muted" style="margin-top:32px">השמות בצילומי המסך הם לדוגמה בלבד. <a class="backlink" href="index.html">← חזרה לדף המשוב</a></p>
+</main>
+</body>
+</html>

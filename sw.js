@@ -1,7 +1,7 @@
 // sw.js - keeps a copy of the page's own files so the tracker opens even when the internet is down.
 // Only the app files are cached. Data never passes through here: it is read/written in the local folder.
-const CACHE = 'nurse-tracker-v2';
-const FILES = ['./', 'index.html', 'app.js', 'store.js', 'charts.js', 'style.css',
+const CACHE = 'nurse-tracker-v3';
+const FILES = ['./', 'index.html', 'app.js', 'store.js', 'charts.js', 'style.css', 'guide.html',
   'vendor/html2canvas.min.js', 'vendor/jspdf.umd.min.js'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
