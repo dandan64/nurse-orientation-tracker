@@ -4,11 +4,13 @@ Run: python test_web.py              (local copy)
      python test_web.py <site url>   (the published GitHub Pages site)
 Serves this folder on http://127.0.0.1 (a secure context, like GitHub Pages), opens the page with ?test-opfs so the
 data goes to the browser's private test folder (Playwright cannot click the Windows folder picker), then fills
-forms like a nurse and checks the saved files, summaries, corrections, cancels, nurse management, drafts,
-damaged files, the offline progress.html and that the page cannot send data anywhere.
+forms like a nurse and checks: files are scrambled, the admin password (setup, recovery code, lock, auto-lock,
+reset, change), summaries, corrections, cancels, nurse management, drafts, damaged files, migration of plain
+files from older versions, the password-protected PDF, and that the page cannot send data anywhere.
 Screenshots go to ./test-screenshots/.
 """
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -47,6 +49,8 @@ JS_LIST = """async path => { let d = await navigator.storage.getDirectory();
 JS_WRITE = """async ([path, bytes]) => { let d = await navigator.storage.getDirectory(); const p = path.split('/'), n = p.pop();
   for (const x of p) d = await d.getDirectoryHandle(x, { create: true });
   const w = await (await d.getFileHandle(n, { create: true })).createWritable(); await w.write(new Uint8Array(bytes)); await w.close(); }"""
+# Read a file and unscramble it with the page's own code.
+JS_READ_PLAIN = "async path => Store.unscramble(await (" + JS_READ + ")(path))"
 # Call a Store function; return [status, value-or-message] instead of throwing.
 JS_CALL = """async ([fn, args]) => { try { return [200, await Store[fn](...args)]; }
   catch (e) { return [e.status || 400, e.message]; } }"""
@@ -96,7 +100,8 @@ def run(url):
             else:
                 dlg.accept() if dlg.type == "beforeunload" or answer["confirm"] else dlg.dismiss()
         page.on("dialog", on_dialog)
-        read = lambda path: page.evaluate(JS_READ, path)
+        raw = lambda path: page.evaluate(JS_READ, path)          # exactly what is on disk
+        read = lambda path: page.evaluate(JS_READ_PLAIN, path)   # unscrambled
         ls = lambda path: page.evaluate(JS_LIST, path)
         call = lambda fn, *args: page.evaluate(JS_CALL, [fn, list(args)])
 
@@ -140,20 +145,55 @@ def run(url):
 
         print("Files in the data folder")
         raws = ls(f"trainees/{tid}/raw")
+        on_disk = raw(f"trainees/{tid}/raw/{raws[0]}") + raw("nurses.json")
+        check(on_disk.startswith("NTX1:") and "דנה" not in on_disk and "scores" not in on_disk,
+              "files are scrambled on disk (no names, no scores readable)")
         check(len(raws) == len(SHIFTS), f"{len(SHIFTS)} raw files (got {len(raws)})")
         recs = sorted((json.loads(read(f"trainees/{tid}/raw/{r}")) for r in raws), key=lambda r: r["submitted_at"])
         ok = all(r["shift_date"] == dt and r["shift"] == sh and r["week"] == wk and r["senior_name"] == sn
                  and [r["scores"][k] for k in SKILLS] == sc and r["recommendation"] == rc and r["note"] == nt
                  and r["trainee_name"] == "דנה כהן" for r, (dt, sh, wk, sn, sc, rc, nt) in zip(recs, SHIFTS))
         check(ok, "every raw file matches what was clicked")
-        check("דנה כהן" in read(f"trainees/{tid}/raw/{raws[0]}"), "Hebrew stored readable")
-        summary = json.loads(read(f"trainees/{tid}/processed/summary.json"))
-        check(summary["shift_count"] == 8 and summary["superseded_count"] == 1, "summary.json: 8 shifts, 1 corrected")
+        check("דנה כהן" in read(f"trainees/{tid}/raw/{raws[0]}"), "unscrambled content intact (Hebrew)")
+        check(ls(f"trainees/{tid}/processed") == [], "no plain-text summary files are written")
+        st, msg = call("summary", tid)
+        check(st == 400 and "נעול" in msg, "summary refused before the admin password is set")
+
+        print("Admin password: first use")
+        page.click('[data-tab="summary"]')
+        page.wait_for_selector("#lk-setup:not([hidden])")
+        check(page.is_hidden('[data-panel="summary"]') and not page.is_visible("#lk-orphan"),
+              "summary tab shows the first-use password setup, dashboard hidden")
+        page.screenshot(path=str(SHOTS / "5-password-setup.png"), full_page=True)
+        page.fill('#lk-setup [name="p1"]', "12345"); page.fill('#lk-setup [name="p2"]', "12345"); page.click("#lk-setup .btn")
+        page.wait_for_selector("#lkmsg.err")
+        check("6" in page.inner_text("#lkmsg"), "password under 6 characters refused")
+        page.fill('#lk-setup [name="p1"]', "Rosh-Ahot1"); page.fill('#lk-setup [name="p2"]', "different"); page.click("#lk-setup .btn")
+        page.wait_for_function("document.querySelector('#lkmsg').textContent.includes('אינן זהות')")
+        check(True, "mismatched passwords refused")
+        page.fill('#lk-setup [name="p1"]', "Rosh-Ahot1"); page.fill('#lk-setup [name="p2"]', "Rosh-Ahot1"); page.click("#lk-setup .btn")
+        page.wait_for_selector("#lk-code:not([hidden])")
+        code = page.inner_text("#lk-codeval")
+        check(re.fullmatch(r"[A-Z2-9]{4}(-[A-Z2-9]{4}){3}", code) is not None, f"recovery code shown ({code})")
+        page.screenshot(path=str(SHOTS / "6-recovery-code.png"), full_page=True)
+        page.fill('#lk-code [name="back"]', "AAAA-BBBB-CCCC-DDDD"); page.click("#lk-code .btn:not(.ghost)")
+        page.wait_for_selector("#lkmsg.err")
+        check(page.is_hidden('[data-panel="summary"]'), "wrong code typed back: not finished")
+        page.fill('#lk-code [name="back"]', code.lower().replace("-", " ")); page.click("#lk-code .btn:not(.ghost)")
+        page.wait_for_selector('[data-panel="summary"]:not([hidden])')
+        check(page.is_visible("#lockbtn"), "code typed back (any case/spacing): summary opens, lock button shown")
+        settings = raw("settings.json")
+        check(settings.startswith("NTX1:") and "Rosh-Ahot1" not in read("settings.json"), "password not stored, settings scrambled")
+
+        print("Summary numbers")
+        st, summary = call("summary", tid)
+        check(summary["shift_count"] == 8 and summary["superseded_count"] == 1, "8 shifts, 1 corrected")
         check(summary["shifts"][-2]["scores"]["safety"] == 3, "correction (newest) wins")
         check(summary["shifts"][1]["avg"] == 1.8 and summary["shifts"][2]["avg"] == 2.25, "averages, 'not observed' skipped")
         check(summary["skills"]["meds"] == {"first": 2, "latest": 4, "last3_avg": 3.67, "observed": 7}, "per-skill first/latest/last3/observed")
 
         print("Draft and night date")
+        page.click('[data-tab="form"]')
         page.click('label.opt:has(input[name="safety"][value="2"])')
         page.fill('#form textarea[name="note"]', "טיוטה")
         page.reload()
@@ -178,12 +218,15 @@ def run(url):
 
         print("Summary tab")
         page.click('[data-tab="summary"]')
+        page.wait_for_selector("#lk-unlock:not([hidden])")
+        check(page.is_hidden('[data-panel="summary"]'), "after a page reload the admin area is locked again")
+        page.fill('#lk-unlock [name="pw"]', "Rosh-Ahot1"); page.click("#lk-unlock .btn:not(.ghost)")
+        page.wait_for_selector('[data-panel="summary"]:not([hidden])')
         page.select_option("#pick", label="דנה כהן")
         page.wait_for_selector("#dash svg")
         check(page.locator("#dash table.heat thead th").count() == 9, "grid has 8 shift columns")
         check(page.locator("#dash table.heat td.na").count() == 1, "one 'not observed' cell")
         check("ניהול זמן" in page.locator(".stat", has_text="תחום לחיזוק").inner_text(), "focus area = time management")
-        check("NurseTracker" not in page.inner_text("#filepath") and "processed" in page.inner_text("#filepath"), "progress.html path shown")
         page.screenshot(path=str(SHOTS / "2-dashboard.png"), full_page=True)
         page.click('label.opt:has(input[name="decision"][value="extend"])')
         page.select_option('#decide select[name="decider_id"]', label="רינה לוי")
@@ -216,8 +259,54 @@ def run(url):
         row.locator("button").click()
         page.wait_for_selector("#mmsg.ok")
         check(page.locator('#form select[name="senior_id"] option', has_text="מיכל").count() == 0, "inactive senior hidden from form")
-        check("מיכל אברהם-לוי" in read(f"trainees/{tid}/processed/progress.html"), "rename rebuilds progress.html (spaces collapsed)")
+        check(any(x["senior"] == "מיכל אברהם-לוי" for x in call("summary", tid)[1]["shifts"]), "renamed senior on old forms (spaces collapsed)")
         check(json.loads(read("nurses.json"))["seniors"][1]["id"] == nurses["seniors"][1]["id"], "id unchanged after rename")
+
+        print("Lock, unlock, forgotten password, change password")
+        page.click("#lockbtn")
+        page.wait_for_selector("#lk-unlock:not([hidden])")
+        check(page.is_hidden('[data-panel="manage"]') and page.is_hidden("#lockbtn"), "lock button: admin area locked again")
+        for fn, args in (("summary", [tid]), ("decide", [{"trainee_id": tid, "decision": "continue", "decider_id": "x", "note": ""}]),
+                         ("updateNurse", [{"kind": "seniors", "id": nurses["seniors"][0]["id"], "name": "x"}])):
+            st, msg = call(fn, *args)
+            check(st == 400 and "נעול" in msg, f"{fn} refused while locked")
+        page.click('[data-tab="form"]')
+        check(page.is_visible("#form") and page.is_hidden("#lockcard"), "form tab stays open while locked")
+        page.click('[data-tab="summary"]')
+        page.fill('#lk-unlock [name="pw"]', "wrong-pass"); page.click("#lk-unlock .btn:not(.ghost)")
+        page.wait_for_selector("#lkmsg.err")
+        check("שגויה" in page.inner_text("#lkmsg"), "wrong password refused")
+        page.click("#lk-forgot")
+        page.fill('#lk-reset [name="code"]', "AAAA-BBBB-CCCC-DDDD"); page.fill('#lk-reset [name="p1"]', "NewPass22")
+        page.fill('#lk-reset [name="p2"]', "NewPass22"); page.click("#lk-reset .btn:not(.ghost)")
+        page.wait_for_selector("#lkmsg.err")
+        check("שגוי" in page.inner_text("#lkmsg"), "reset with a wrong recovery code refused")
+        page.fill('#lk-reset [name="code"]', code); page.click("#lk-reset .btn:not(.ghost)")
+        page.wait_for_selector('[data-panel="summary"]:not([hidden])')
+        check(True, "forgotten password: recovery code sets a new one and opens")
+        st = call("updateNurse", {"kind": "seniors", "id": nurses["seniors"][0]["id"], "name": "רינה לוי"})
+        page.click("#lockbtn")
+        check(call("unlock", "Rosh-Ahot1")[0] == 400 and call("unlock", "NewPass22")[0] == 200, "old password stops working, new one works")
+        page.click('[data-tab="manage"]')
+        page.fill('#chpw [name="p1"]', "Third333"); page.fill('#chpw [name="p2"]', "Third333"); page.click("#chpw .btn")
+        page.wait_for_selector("#chmsg.ok")
+        call("lock")
+        check(call("unlock", "NewPass22")[0] == 400 and call("unlock", "Third333")[0] == 200, "change password in manage tab works")
+        check(len(ls(f"trainees/{tid}/raw")) == len(SHIFTS), "password changes never touch the data")
+
+        cctx = browser.new_context(bypass_csp=True)   # auto-lock: needs a fake clock, so its own context
+        pg = cctx.new_page(); pg.clock.install(time="2026-10-20T10:00:00"); pg.goto(url); pg.wait_for_selector("#app:not([hidden])")
+        pg.click('[data-tab="summary"]')
+        pg.fill('#lk-setup [name="p1"]', "abcdef"); pg.fill('#lk-setup [name="p2"]', "abcdef"); pg.click("#lk-setup .btn")
+        pg.wait_for_selector("#lk-code:not([hidden])")
+        pg.fill('#lk-code [name="back"]', pg.inner_text("#lk-codeval")); pg.click("#lk-code .btn:not(.ghost)")
+        pg.wait_for_selector('[data-panel="summary"]:not([hidden])')
+        pg.clock.fast_forward("09:00")
+        check(pg.is_visible('[data-panel="summary"]'), "still open after 9 idle minutes")
+        pg.clock.fast_forward("02:00")
+        pg.wait_for_selector("#lk-unlock:not([hidden])", timeout=5000)
+        check(pg.is_hidden('[data-panel="summary"]'), "auto-locked after 10+ idle minutes")
+        cctx.close()
 
         print("Data layer edge cases")
         st, msg = call("addNurse", "admins", "x")
@@ -253,12 +342,16 @@ def run(url):
         check(many.count(200) == 15, "15 saves at once all succeed (writes are queued)")
 
         print("Damaged files")
+        good_raw = raw(f"trainees/{tid}/raw/{raws[1]}")
+        tampered = good_raw[:-6] + ("A" if good_raw[-6] != "A" else "B") + good_raw[-5:]
+        page.evaluate(JS_WRITE, [f"trainees/{tid}/raw/tampered.json", list(tampered.encode())])
         for name, data in (("raw/empty.json", b""), ("raw/half.json", b'{"shift_date": "20'), ("raw/list.json", b"[1]"),
                            ("raw/latin1.json", '{"note": "é"}'.encode("latin-1")), ("decisions/bad.json", b'{"decision": "maybe"}'),
                            ("voids/bad.json", b'{"file": 5}')):
             page.evaluate(JS_WRITE, [f"trainees/{tid}/{name}", list(data)])
         st, s = call("summary", tid)
-        check(st == 200 and len(s["bad_files"]) == 6, f"summary still works, 6 damaged files listed ({s['bad_files'] if st == 200 else s})")
+        check(st == 200 and len(s["bad_files"]) == 7 and "raw/tampered.json" in s["bad_files"],
+              f"summary still works, 7 damaged files listed incl. an edited scrambled file ({s['bad_files'] if st == 200 else s})")
         check(call("decide", {"trainee_id": tid, "decision": "continue", "decider_id": sid, "note": ""})[0] == 200, "saving still works")
         page.click('[data-tab="summary"]'); page.select_option("#pick", label="דנה כהן")
         page.wait_for_selector("#dash .msg.err")
@@ -266,8 +359,43 @@ def run(url):
         good = read("nurses.json")
         page.evaluate(JS_WRITE, ["nurses.json", list(b"{broken")])
         st, _ = call("addNurse", "seniors", "חדשה")
-        check(st == 400 and read("nurses.json") == "{broken", "damaged nurses.json: add refused, file NOT overwritten")
-        page.evaluate(JS_WRITE, ["nurses.json", list(good.encode())])
+        check(st == 400 and raw("nurses.json") == "{broken", "damaged nurses.json: add refused, file NOT overwritten")
+        page.evaluate(JS_WRITE, ["nurses.json", list(good.encode())])   # plain again: scrambled by the next start
+
+        print("Upgrade from an older version (plain files)")
+        plain = {"submitted_at": "2026-09-01T10:00:00", "trainee_id": tid, "trainee_name": "דנה כהן", "senior_id": sid,
+                 "senior_name": "רינה לוי", "shift_date": "2026-09-01", "shift": "ערב", "week": 1,
+                 "scores": dict.fromkeys(SKILLS, 1), "recommendation": "concern", "note": "ישן"}
+        page.evaluate(JS_WRITE, [f"trainees/{tid}/raw/2026-09-01_old.json", list(json.dumps(plain, ensure_ascii=False).encode())])
+        page.evaluate(JS_WRITE, [f"trainees/{tid}/processed/progress.html", list("<p>דנה כהן ציונים</p>".encode())])
+        page.reload(); page.wait_for_selector("#app:not([hidden])")
+        check(raw(f"trainees/{tid}/raw/2026-09-01_old.json").startswith("NTX1:") and raw("nurses.json").startswith("NTX1:"),
+              "plain files from an older version are scrambled on start")
+        check(ls(f"trainees/{tid}/processed") == [], "old plain progress.html / summary.json removed")
+        call("unlock", "Third333")
+        check(any(x["note"] == "ישן" for x in call("summary", tid)[1]["shifts"]), "upgraded old form still counts")
+        call("lock")
+        page.click('[data-tab="summary"]')
+        page.fill('#lk-unlock [name="pw"]', "Third333"); page.click("#lk-unlock .btn:not(.ghost)")
+        page.wait_for_selector('[data-panel="summary"]:not([hidden])')
+        page.select_option("#pick", label="דנה כהן")
+        page.wait_for_selector("#dash table.heat")
+
+        print("Password-protected PDF")
+        with page.expect_download(timeout=60000) as dl:
+            page.click("#pdf")
+        pdf_path = Path(tempfile.mkdtemp()) / "summary.pdf"
+        dl.value.save_as(pdf_path)
+        check(dl.value.suggested_filename.startswith("סיכום-דנה כהן-") and dl.value.suggested_filename.endswith(".pdf"),
+              f"PDF downloaded ({dl.value.suggested_filename})")
+        import fitz
+        doc = fitz.open(pdf_path)
+        check(doc.needs_pass, "PDF needs a password to open")
+        check(not doc.authenticate("wrong-pass"), "wrong password does not open the PDF")
+        check(doc.authenticate("Third333") and doc.page_count >= 2 and doc[0].get_images(),
+              f"admin password opens it ({doc.page_count} pages with the dashboard)")
+        doc[0].get_pixmap(dpi=60).save(str(SHOTS / "7-pdf-page1.png"))
+        doc.close()
 
         print("Phone width")
         page.set_viewport_size({"width": 400, "height": 900})
@@ -276,19 +404,6 @@ def run(url):
             check(not page.evaluate("document.documentElement.scrollWidth > innerWidth + 1"), f"no sideways scroll at 400px ({tab})")
         page.click('[data-tab="summary"]')
         page.screenshot(path=str(SHOTS / "3-dashboard-phone.png"), full_page=True)
-
-        print("Standalone progress.html (opens with no internet, no website)")
-        html = read(f"trainees/{tid}/processed/progress.html")
-        with tempfile.TemporaryDirectory() as tmp:
-            f = Path(tmp) / "progress.html"
-            f.write_text(html, encoding="utf-8")
-            pg = ctx.new_page()
-            pg.goto(f.as_uri())
-            body = pg.inner_text("body")
-            check(pg.locator("table.heat").count() == 1 and "הארכת אוריינטציה" in body and "קובץ פגום" in body
-                  and pg.locator("[data-void]").count() == 0, "progress.html renders charts, decision, warning; no cancel buttons")
-            pg.screenshot(path=str(SHOTS / "4-progress-file.png"), full_page=True)
-            pg.close()
 
         expected = ("409", "400", "Content Security Policy", "example.com")
         check(not [e for e in errors if not any(x in e for x in expected)], f"no unexpected browser errors {errors}")

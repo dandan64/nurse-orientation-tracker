@@ -7,6 +7,15 @@ A review of the current code (`server.py`, `index.html`, `charts.js`, `style.css
 
 Part C merges both into one prioritized roadmap. Every finding names where in the code it lives, and how hard it is to fix: **S** = hours, **M** = a day or two, **L** = several days.
 
+## Update 2026-10-23: admin password + scrambled files (B11, part of B12, B14)
+
+Decided with the head nurse after comparing Windows permissions, real encryption and scrambling:
+- **Scrambled files** (unreadable in File Explorer; detects edited files). Not real encryption, on purpose: real encryption means a lost password loses all the data. The scrambling key is in the public code.
+- **B11 done:** one admin password, set by the head nurse on first use, locks "סיכום והחלטה" and "ניהול אחיות" (checked in `store.js`, not only hidden). Auto-lock after 10 idle minutes. Recovery = printed code (email recovery would need a server). Change password in "ניהול אחיות".
+- **B14 done differently:** "ייצוא PDF מוגן בסיסמה": a picture of the dashboard in a PDF that opens with the admin password.
+- **Plain `progress.html` / `summary.json` removed** (they exposed everything). Older plain files are scrambled automatically.
+- Still open from B12: hospital privacy sign-off, audit log of who viewed.
+
 ## Update 2026-10-21: moved to a web page
 
 The exe was blocked on the ward PC, so the app is now a static web page (GitHub Pages) that saves into a folder on the ward PC through the browser (see `README.md`). The Python server became `store.js` in the page. Effects on this list:

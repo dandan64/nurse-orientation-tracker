@@ -33,12 +33,50 @@
 
   <div id="app" hidden>
   <p class="muted folder-bar">תיקיית נתונים: <b id="foldername"></b>
-    <button type="button" class="btn ghost sm" id="change">החלפה</button></p>
+    <button type="button" class="btn ghost sm" id="change">החלפה</button>
+    <button type="button" class="btn ghost sm" id="lockbtn" hidden>🔒 נעילת אזור המנהלת</button></p>
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="form">מילוי משוב</button>
     <button role="tab" aria-selected="false" data-tab="summary">סיכום והחלטה</button>
     <button role="tab" aria-selected="false" data-tab="manage">ניהול אחיות</button>
   </nav>
+
+  <!-- ===== Admin lock: shown instead of "סיכום והחלטה" / "ניהול אחיות" until the password is entered ===== -->
+  <section id="lockcard" class="card" hidden>
+    <form id="lk-setup" hidden>
+      <h3>הגדרת סיסמת מנהלת (פעם ראשונה)</h3>
+      <p class="muted">הסיסמה נועלת את "סיכום והחלטה" ואת "ניהול אחיות". טופס המשוב נשאר פתוח לכל החונכות. קבצי הנתונים נשמרים מעורבלים ואינם קריאים בסייר הקבצים.</p>
+      <p class="msg err" id="lk-orphan" hidden>שימי לב: בעבר כבר הוגדרה סיסמה בתיקייה הזו, אבל קובץ ההגדרות (settings.json) חסר - ייתכן שנמחק. אפשר לשחזר אותו מגיבוי, או לקבוע כאן סיסמה חדשה.</p>
+      <label class="f">סיסמה חדשה (לפחות 6 תווים) <input type="password" name="p1" autocomplete="new-password" required></label>
+      <label class="f">הסיסמה שוב <input type="password" name="p2" autocomplete="new-password" required></label>
+      <button class="btn">שמירת הסיסמה</button>
+    </form>
+    <form id="lk-code" hidden>
+      <div id="lk-codebox">
+        <h3>קוד שחזור לסיסמת המנהלת</h3>
+        <p>אם הסיסמה תישכח, הקוד הזה מאפשר לקבוע סיסמה חדשה. הנתונים עצמם לעולם לא יאבדו. יש להדפיס ולשמור בכספת המחלקה ועותק אצל הנהלת הסיעוד.</p>
+        <p class="code" id="lk-codeval"></p>
+      </div>
+      <button type="button" class="btn ghost" id="lk-print">הדפסת הקוד</button>
+      <label class="f">להקליד את הקוד כדי לוודא שנרשם <input name="back" autocomplete="off" required></label>
+      <button class="btn">סיום</button>
+    </form>
+    <form id="lk-unlock" hidden>
+      <h3>אזור המנהלת נעול</h3>
+      <label class="f">סיסמת מנהלת <input type="password" name="pw" autocomplete="current-password" required></label>
+      <button class="btn">פתיחה</button>
+      <button type="button" class="btn ghost" id="lk-forgot">שכחתי סיסמה</button>
+    </form>
+    <form id="lk-reset" hidden>
+      <h3>שחזור סיסמה בעזרת קוד השחזור</h3>
+      <label class="f">קוד שחזור <input name="code" autocomplete="off" required></label>
+      <label class="f">סיסמה חדשה (לפחות 6 תווים) <input type="password" name="p1" autocomplete="new-password" required></label>
+      <label class="f">הסיסמה שוב <input type="password" name="p2" autocomplete="new-password" required></label>
+      <button class="btn">קביעת סיסמה חדשה</button>
+      <button type="button" class="btn ghost" id="lk-back">חזרה</button>
+    </form>
+    <span class="msg" id="lkmsg" role="status"></span>
+  </section>
 
   <!-- ===== Form tab ===== -->
   <form id="form" data-panel="form">
@@ -79,9 +117,12 @@
 
   <!-- ===== Summary tab ===== -->
   <section data-panel="summary" hidden>
-    <label class="f" style="max-width:320px;margin-bottom:16px">בחירת אחות חדשה
-      <select id="pick" data-kind="trainees"></select>
-    </label>
+    <div class="row" style="align-items:end;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <label class="f" style="max-width:320px;margin:0">בחירת אחות חדשה
+        <select id="pick" data-kind="trainees"></select>
+      </label>
+      <button type="button" class="btn ghost" id="pdf" hidden>ייצוא PDF מוגן בסיסמה</button>
+    </div>
     <div id="dash"></div>
     <form id="decide" class="card" hidden>
       <h3>רישום החלטה</h3>
@@ -91,7 +132,6 @@
         <label class="f">שם המחליטה <select name="decider_id" data-kind="seniors" required></select></label>
       </div>
       <label class="f">הערה (לא חובה) <textarea name="note" rows="2" maxlength="2000"></textarea></label>
-      <p class="muted" id="filepath"></p>
       <button class="btn" id="dsave" disabled>שמירת ההחלטה</button><span class="msg" id="dmsg" role="status"></span>
     </form>
   </section>
@@ -102,6 +142,13 @@
     <div class="card"><h3>אחיות חדשות</h3><div class="table-wrap"><table id="m-trainees"></table></div></div>
     <div class="card"><h3>אחיות חונכות</h3><div class="table-wrap"><table id="m-seniors"></table></div></div>
     <span class="msg" id="mmsg" role="status"></span>
+    <form class="card" id="chpw">
+      <h3>החלפת סיסמת המנהלת</h3>
+      <p class="muted">קוד השחזור נשאר אותו קוד.</p>
+      <label class="f">סיסמה חדשה (לפחות 6 תווים) <input type="password" name="p1" autocomplete="new-password" required></label>
+      <label class="f">הסיסמה שוב <input type="password" name="p2" autocomplete="new-password" required></label>
+      <button class="btn ghost">החלפת סיסמה</button><span class="msg" id="chmsg" role="status"></span>
+    </form>
   </section>
   </div>
 </main>

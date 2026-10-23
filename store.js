@@ -2,12 +2,13 @@
 // nurse picks once (File System Access API, Edge/Chrome). Nothing is ever sent over the network:
 // the website only delivers the page; the data never leaves the ward PC.
 //
-// Folder layout (same as the old exe version):
+// Folder layout (every file is SCRAMBLED - unreadable in File Explorer, see scramble() below):
 //   nurses.json
+//   settings.json                                      admin password + recovery code (hashed)
 //   trainees/<id>/raw/<date>_<shift>_<stamp>.json      one file per form (never overwritten)
 //   trainees/<id>/voids/<stamp>.json                   one file per cancelled form
 //   trainees/<id>/decisions/<stamp>.json               one file per decision
-//   trainees/<id>/processed/summary.json + progress.html   rebuilt after every change
+// Summaries are computed live, only after the admin password is entered. No plain-text summary file is kept.
 
 const SKILLS = META.skills.map(s => s.key);   // codes come from charts.js META: one source of truth
 const RECS = META.recs.map(r => r.key);
@@ -17,7 +18,7 @@ const MAX_NOTE = 2000;
 
 const Store = (() => {
   let root = null;            // FileSystemDirectoryHandle of the data folder
-  let assets = null;          // style.css + charts.js text, inlined into progress.html
+  let password = null;        // admin password while unlocked (in memory only; used for the PDF password)
 
   const fail = msg => { throw new Error(msg); };
   const pad = (n, w = 2) => String(n).padStart(w, '0');
@@ -40,15 +41,73 @@ const Store = (() => {
     await w.write(text);
     await w.close();
   }
-  const writeJson = (parts, name, obj) => writeText(parts, name, JSON.stringify(obj, null, 2));
   const decode = buf => new TextDecoder('utf-8', { fatal: true }).decode(buf);
+
+  // ---------- scrambling ----------
+  // ponytail: SCRAMBLING, not real secrecy (agreed with the head nurse). Files are unreadable in File Explorer,
+  // but the key is in this public code, so a technical person could unscramble them. Chosen on purpose:
+  // no forgotten password or lost code can ever lock the data away. Real encryption = a key that can be lost.
+  const MAGIC = 'NTX1:';
+  let aesKey = null;
+  const getKey = async () => aesKey ??= crypto.subtle.importKey('raw',
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode('nurse-orientation-tracker/scramble/v1')),
+    'AES-GCM', false, ['encrypt', 'decrypt']);
+  const toB64 = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
+  const fromB64 = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  async function scramble(text) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await getKey(), new TextEncoder().encode(text)));
+    const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12);
+    return MAGIC + toB64(all);
+  }
+  async function unscramble(text) {
+    if (!text.startsWith(MAGIC)) return text;   // a plain file (older version, or hand-made)
+    const all = fromB64(text.slice(MAGIC.length));
+    // AES-GCM also detects a changed or cut file: it throws, and the file is reported as damaged
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.subarray(0, 12) }, await getKey(), all.subarray(12)));
+  }
+  const parseFile = async f => JSON.parse(await unscramble(decode(await (await f.getFile()).arrayBuffer())));
+  const writeJson = async (parts, name, obj) => writeText(parts, name, await scramble(JSON.stringify(obj, null, 2)));
 
   async function readJson(parts, name, dflt) {
     let f;
     try { f = await (await dir(parts, false)).getFileHandle(name); }
     catch (e) { if (e.name === 'NotFoundError' || e.name === 'TypeMismatchError') return dflt; throw e; }
-    return JSON.parse(decode(await (await f.getFile()).arrayBuffer())); // damaged file -> error, never "empty"
+    return parseFile(f); // damaged file -> error, never "empty"
   }
+
+  // Older versions saved plain files plus plain summaries. Scramble the files, delete the plain summaries.
+  async function migrate(d = root, depth = 0) {
+    for await (const [name, h] of d.entries()) {
+      if (h.kind === 'directory') {
+        if (depth === 2 && name === 'processed') await d.removeEntry(name, { recursive: true }); // trainees/<id>/processed
+        else await migrate(h, depth + 1);
+      } else if (name.endsWith('.json')) {
+        const text = await (await h.getFile()).text();
+        if (!text.startsWith(MAGIC)) {
+          const w = await h.createWritable(); await w.write(await scramble(text)); await w.close();
+        }
+      }
+    }
+  }
+
+  // ---------- admin password ----------
+  // Stored as a slow salted hash (PBKDF2), so the password itself is never in any file.
+  const ITER = 600000;
+  async function hash(secret, salt = crypto.getRandomValues(new Uint8Array(16)), iter = ITER) {
+    const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, k, 256);
+    return { salt: toB64(salt), iter, hash: toB64(new Uint8Array(bits)) };
+  }
+  const matches = async (secret, h) => !!h && (await hash(secret, fromB64(h.salt), h.iter)).hash === h.hash;
+  const normCode = c => String(c ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  function newCode() { // 16 characters, no look-alikes (0/O, 1/I/L), shown as XXXX-XXXX-XXXX-XXXX
+    const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(16));
+    return [...r].map(b => abc[b % abc.length]).join('').match(/.{4}/g).join('-');
+  }
+  const checkPassword = pw => (typeof pw === 'string' && pw.length >= 6) || fail('הסיסמה חייבת להכיל לפחות 6 תווים');
+  const loadSettings = () => readJson([], 'settings.json', null);
+  const needUnlock = () => password !== null || fail('נעול - יש להזין את סיסמת המנהלת');
   async function jsonNames(parts) {
     let d;
     try { d = await dir(parts, false); } catch (e) { if (e.name === 'NotFoundError') return []; throw e; }
@@ -122,7 +181,7 @@ const Store = (() => {
     if (!d) return out;
     for (const name of await jsonNames(parts)) {
       try {
-        const r = JSON.parse(decode(await (await (await d.getFileHandle(name)).getFile()).arrayBuffer()));
+        const r = await parseFile(await d.getFileHandle(name));
         if (!r || typeof r !== 'object' || Array.isArray(r) || !ok(r)) throw 0;
         r._file = name;
         out.push(r);
@@ -180,44 +239,62 @@ const Store = (() => {
     };
   }
 
-  async function summary(tid) {
+  async function summary(tid) { // internal: no password check (saveFeedback uses it for the overwrite question)
     const nurses = await loadNurses();
     const name = nameOf(nurses, 'trainees', tid);
     return summarize(tid, name, Object.fromEntries(nurses.seniors.map(n => [n.id, n.name])));
   }
 
-  const PROGRESS = (name, css, charts, data) => `<!doctype html>
-<html lang="he" dir="rtl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>התקדמות - ${esc(name)}</title>
-<style>${css}</style></head>
-<body><main class="wrap"><div id="dash"></div></main>
-<script>${charts}</script>
-<script>renderDashboard(${data}, document.getElementById('dash'));</script>
-</body></html>`;
-
-  async function regenerate(tid) {
-    const s = await summary(tid);
-    await writeJson([...tpath(tid), 'processed'], 'summary.json', s);
-    const data = JSON.stringify(s).replace(/<\//g, '<\\/');  // never close the <script> early
-    await writeText([...tpath(tid), 'processed'], 'progress.html', PROGRESS(s.trainee_name, assets.css, assets.charts, data));
-    return s;
-  }
-
   // ---------- public API (all writes go through the lock) ----------
   return {
-    SKILLS, today, validateFeedback, makeId,
+    SKILLS, today, validateFeedback, makeId, unscramble,
     get folderName() { return root?.name; },
+    get isUnlocked() { return password !== null; },
+    get password() { return password; },
 
     async open(handle) {
       root = handle;
-      if (!assets) {
-        const [css, charts] = await Promise.all(['style.css', 'charts.js'].map(f => fetch(f).then(r => r.text())));
-        assets = { css, charts };
-      }
+      password = null;
+      await locked(() => migrate());
     },
     nurses: loadNurses,
-    summary,
+    summary: tid => { needUnlock(); return summary(tid); },
+
+    // ---- admin password ----
+    hasPassword: async () => !!(await loadSettings()),
+    settingsMissing: async () => !!(await loadNurses()).password_set && !(await loadSettings()),
+    setupPassword: pw => locked(async () => {   // first use only; returns the recovery code to print
+      if (await loadSettings()) fail('כבר הוגדרה סיסמה');
+      checkPassword(pw);
+      const code = newCode();
+      await writeJson([], 'settings.json', { created_at: localIso(), password: await hash(pw), recovery: await hash(normCode(code)) });
+      // remembered in nurses.json too, so a deleted settings.json is noticed instead of silently allowing a new password
+      const nurses = await loadNurses();
+      await writeJson([], 'nurses.json', { ...nurses, password_set: true });
+      password = pw;
+      return code;
+    }),
+    unlock: async pw => {
+      const st = await loadSettings();
+      if (!st) fail('עדיין לא הוגדרה סיסמה');
+      if (!await matches(pw, st.password)) fail('סיסמה שגויה');
+      password = pw;
+    },
+    lock: () => { password = null; },
+    // Forgotten password: the printed recovery code sets a new one. The data is never affected.
+    resetPassword: (code, pw) => locked(async () => {
+      const st = await loadSettings();
+      if (!st || !await matches(normCode(code), st.recovery)) fail('קוד השחזור שגוי');
+      checkPassword(pw);
+      await writeJson([], 'settings.json', { ...st, password: await hash(pw), reset_at: localIso() });
+      password = pw;
+    }),
+    changePassword: pw => locked(async () => {
+      needUnlock(); checkPassword(pw);
+      const st = await loadSettings();
+      await writeJson([], 'settings.json', { ...st, password: await hash(pw), changed_at: localIso() });
+      password = pw;
+    }),
 
     addNurse: (kind, name) => locked(async () => {
       checkKind(kind);
@@ -231,18 +308,13 @@ const Store = (() => {
 
     // Rename and/or mark finished (trainee) / inactive (senior). The id - and so the folder - never changes.
     updateNurse: ({ kind, id, name, active }) => locked(async () => {
+      needUnlock();
       checkKind(kind);
       const nurses = await loadNurses();
       const nurse = nurses[kind].find(n => n.id === id) || fail('האחות לא נמצאה');
       nurse.name = cleanName(nurses, kind, name, id);
       nurse.active = active !== false;
       await writeJson([], 'nurses.json', nurses);
-      const names = new Set(await (async () => { // trainees that have a folder
-        const out = []; const d = await dir(['trainees'], false).catch(() => null);
-        if (d) for await (const [n, h] of d.entries()) if (h.kind === 'directory') out.push(n);
-        return out;
-      })());
-      for (const t of kind === 'seniors' ? nurses.trainees : [nurse]) if (names.has(t.id)) await regenerate(t.id);
       return nurse;
     }),
 
@@ -255,21 +327,22 @@ const Store = (() => {
         throw Object.assign(new Error(`כבר קיים משוב למשמרת זו מ-${old.senior}`), { status: 409 });
       const file = `${rec.shift_date}_${rec.shift}_${stamp()}.json`;
       await writeJson([...tpath(tid), 'raw'], file, rec);
-      await regenerate(tid);
       return { ok: true, file };
     }),
 
     // Cancel one saved form. Nothing is deleted: a void record is appended.
+    // Also used by the nurse's "undo" right after saving, so no password; the summary comes back only when unlocked.
     voidForm: (tid, file) => locked(async () => {
       nameOf(await loadNurses(), 'trainees', tid);
       if (!isStr(file) || !(await jsonNames([...tpath(tid), 'raw'])).includes(file)) fail('הטופס לא נמצא');
       const rec = await readJson([...tpath(tid), 'raw'], file, {}).catch(() => ({}));
       await writeJson([...tpath(tid), 'voids'], `${stamp()}.json`, {
         voided_at: localIso(), file, shift_date: rec.shift_date, shift: rec.shift, senior_name: rec.senior_name });
-      return regenerate(tid);
+      return password !== null ? summary(tid) : { ok: true };
     }),
 
     decide: ({ trainee_id, decision, decider_id, note }) => locked(async () => {
+      needUnlock();
       const nurses = await loadNurses();
       nameOf(nurses, 'trainees', trainee_id);
       const decider_name = nameOf(nurses, 'seniors', decider_id);
@@ -278,7 +351,7 @@ const Store = (() => {
       if (!isStr(note) || note.length > MAX_NOTE) fail('הערה ארוכה מדי');
       await writeJson([...tpath(trainee_id), 'decisions'], `${stamp()}.json`,
         { decided_at: localIso(), decision, decider_id, decider_name, note: note.trim() });
-      return regenerate(trainee_id);
+      return summary(trainee_id);
     }),
   };
 })();

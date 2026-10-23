@@ -118,25 +118,26 @@ form.addEventListener('submit', async e => {
   }
 });
 
-// Cancel a saved form (wrong date, wrong nurse...). The server appends a void record; nothing is deleted.
+// Cancel a saved form (wrong date, wrong nurse...). A void record is appended; nothing is deleted.
 async function voidForm(tid, file, label, msgSel) {
   if (!confirm(`לבטל את הטופס ${label}?\nהטופס לא יופיע בסיכום ובגרפים (הקובץ נשמר בארכיון).`)) return;
   try {
     const s = await Store.voidForm(tid, file);
     if (msgSel === '#msg') showMsg('#msg', 'הטופס בוטל', false);
-    else renderDashboard(s, $('#dash'), { canVoid: true });
+    else show(s);
   } catch (e) { showMsg(msgSel, e.message, false); }
 }
 
-// ---- summary tab ----
+// ---- summary tab (admin only) ----
+let current = null; // the summary on screen, used by the PDF export
+function show(s) { current = s; renderDashboard(s, $('#dash'), { canVoid: true }); }
 async function showTrainee() {
   const tid = $('#pick').value;
-  decide.hidden = !tid;
+  decide.hidden = $('#pdf').hidden = !tid;
+  current = null;
   if (!tid) { $('#dash').innerHTML = ''; return; }
-  try {
-    renderDashboard(await Store.summary(tid), $('#dash'), { canVoid: true });
-    $('#filepath').textContent = `קובץ התקדמות עצמאי: ${Store.folderName}\\trainees\\${tid}\\processed\\progress.html`;
-  } catch (e) { $('#dash').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; }
+  try { show(await Store.summary(tid)); }
+  catch (e) { $('#dash').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; }
 }
 $('#pick').onchange = showTrainee;
 $('#dash').addEventListener('click', e => {
@@ -150,22 +151,132 @@ decide.addEventListener('submit', async e => {
   const f = new FormData(decide);
   $('#dsave').disabled = true;
   try {
-    renderDashboard(await Store.decide({
+    show(await Store.decide({
       trainee_id: $('#pick').value, decision: f.get('decision'), decider_id: f.get('decider_id'), note: f.get('note'),
-    }), $('#dash'), { canVoid: true });
+    }));
     decide.reset();
     showMsg('#dmsg', 'ההחלטה נשמרה ✓', true);
   } catch (err) { showMsg('#dmsg', err.message, false); $('#dsave').disabled = false; }
 });
 
-// ---- tabs ----
-document.querySelectorAll('[data-tab]').forEach(t => t.onclick = () => {
-  document.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === t));
-  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== t.dataset.tab);
-  if (t.dataset.tab === 'summary') showTrainee();
-  if (t.dataset.tab === 'manage') renderManage();
-  $('#msg').textContent = ''; $('#dmsg').textContent = ''; $('#mmsg').textContent = '';
+// ---- tabs: "סיכום והחלטה" and "ניהול אחיות" need the admin password ----
+const ADMIN_TABS = ['summary', 'manage'];
+let tab = 'form';
+async function showTab(name) {
+  tab = name;
+  const locked = ADMIN_TABS.includes(name) && !Store.isUnlocked;
+  document.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === name));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = locked || p.dataset.panel !== name);
+  $('#lockcard').hidden = !locked;
+  for (const id of ['#msg', '#dmsg', '#mmsg', '#chmsg']) $(id).textContent = '';
+  if (locked) {
+    const has = await Store.hasPassword();
+    lockMode(has ? 'unlock' : 'setup');
+    if (!has) $('#lk-orphan').hidden = !(await Store.settingsMissing());
+    return;
+  }
+  if (name === 'summary') showTrainee();
+  if (name === 'manage') renderManage();
+}
+document.querySelectorAll('[data-tab]').forEach(t => t.onclick = () => showTab(t.dataset.tab));
+
+// ---- admin lock ----
+let lkMode = '';
+function lockMode(mode) {
+  if (mode === lkMode) return;   // already showing: never wipe what is being typed
+  lkMode = mode;
+  for (const m of ['setup', 'code', 'unlock', 'reset']) $('#lk-' + m).hidden = m !== mode;
+  $('#lkmsg').textContent = '';
+  document.querySelectorAll('#lockcard form').forEach(f => f.reset());
+  $(`#lk-${mode} input`)?.focus();
+}
+function unlocked() { lkMode = ''; $('#lockbtn').hidden = false; lastUse = Date.now(); showTab(tab); }
+function lockNow() {
+  Store.lock();
+  lkMode = '';
+  $('#lockbtn').hidden = true;
+  $('#dash').innerHTML = ''; current = null;
+  showTab(ADMIN_TABS.includes(tab) ? tab : 'form');
+}
+$('#lockbtn').onclick = lockNow;
+// Auto-lock after 10 minutes without use, so a walk-away does not leave the summaries open.
+let lastUse = Date.now();
+['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { lastUse = Date.now(); }));
+setInterval(() => { if (Store.isUnlocked && Date.now() - lastUse > 10 * 60 * 1000) lockNow(); }, 30 * 1000);
+
+const lockForm = (id, fn) => $(id).addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  try { await fn(f); } catch (err) { showMsg('#lkmsg', err.message, false); }
 });
+const samePw = f => f.p1 === f.p2 || (() => { throw new Error('שתי הסיסמאות אינן זהות'); })();
+let shownCode = '';
+lockForm('#lk-setup', async f => {
+  samePw(f);
+  shownCode = await Store.setupPassword(f.p1);
+  lockMode('code');
+  $('#lk-codeval').textContent = shownCode;
+});
+lockForm('#lk-code', async f => {
+  const norm = c => c.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (norm(f.back) !== norm(shownCode)) throw new Error('הקוד שהוקלד שונה מהקוד שעל המסך');
+  shownCode = '';
+  unlocked();
+});
+lockForm('#lk-unlock', async f => { await Store.unlock(f.pw); unlocked(); });
+lockForm('#lk-reset', async f => { samePw(f); await Store.resetPassword(f.code, f.p1); unlocked(); });
+$('#lk-forgot').onclick = () => lockMode('reset');
+$('#lk-back').onclick = () => lockMode('unlock');
+$('#lk-print').onclick = () => {
+  document.body.classList.add('printing-code');
+  print();
+  document.body.classList.remove('printing-code');
+};
+$('#chpw').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  try { samePw(f); await Store.changePassword(f.p1); e.target.reset(); showMsg('#chmsg', 'הסיסמה הוחלפה ✓', true); }
+  catch (err) { showMsg('#chmsg', err.message, false); }
+});
+
+// ---- PDF export: the dashboard as a picture in a PDF that opens only with the admin password ----
+const loadScript = src => new Promise((ok, bad) => {
+  if (document.querySelector(`script[src="${src}"]`)) return ok();
+  const s = document.createElement('script');
+  s.src = src; s.onload = ok; s.onerror = () => bad(new Error('טעינת רכיב ה-PDF נכשלה'));
+  document.head.append(s);
+});
+$('#pdf').onclick = async () => {
+  if (!current) return;
+  const b = $('#pdf');
+  b.disabled = true;
+  showMsg('#dmsg', 'מכין PDF…', true);
+  const box = document.createElement('div');
+  box.className = 'pdf-render';
+  document.body.append(box);
+  try {
+    // only loaded when needed; copied into this site (vendor/), never fetched from elsewhere
+    await Promise.all([loadScript('vendor/html2canvas.min.js'), loadScript('vendor/jspdf.umd.min.js')]);
+    renderDashboard(current, box);                       // a clean copy: no cancel buttons, all sections open
+    box.querySelectorAll('details').forEach(d => { d.open = true; });
+    const canvas = await html2canvas(box, { scale: 2, backgroundColor: '#ffffff', logging: false });
+    const pdf = new jspdf.jsPDF({ unit: 'pt', format: 'a4',
+      encryption: { userPassword: Store.password, ownerPassword: Store.password, userPermissions: ['print'] } });
+    const W = 595.28, H = 841.89, M = 24, k = (W - 2 * M) / canvas.width, slice = Math.floor((H - 2 * M) / k);
+    for (let y = 0; y < canvas.height; y += slice) {   // a tall dashboard becomes several A4 pages
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = Math.min(slice, canvas.height - y);
+      const ctx = part.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, -y);
+      if (y) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.9), 'JPEG', M, M, W - 2 * M, part.height * k);
+    }
+    pdf.save(`סיכום-${current.trainee_name}-${Store.today()}.pdf`);
+    showMsg('#dmsg', 'ה-PDF נשמר בתיקיית ההורדות. פותחים אותו עם סיסמת המנהלת.', true);
+  } catch (e) { showMsg('#dmsg', e.message, false); }
+  finally { box.remove(); b.disabled = false; }
+};
 
 // ---- manage nurses tab: rename, finished / inactive ----
 function renderManage() {
@@ -204,11 +315,13 @@ function idb(mode, fn) {
 }
 
 async function start(handle) {
-  await Store.open(handle);
+  await Store.open(handle);   // also scrambles files left plain by an older version
   $('#connect').hidden = true; $('#app').hidden = false;
   $('#foldername').textContent = handle.name;
+  $('#lockbtn').hidden = true;
   await loadNurses();
-  restoreDraft();
+  await showTab(tab);
+  restoreDraft();   // after showTab, which clears messages
 }
 
 async function pickFolder() {

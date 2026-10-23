@@ -93,3 +93,15 @@ details summary { cursor: pointer; font-weight: 600; }
 @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 #connect .btn { margin: 8px 0 0 8px; }
 .folder-bar { margin: 0 0 8px; }
+#lockcard .btn { margin: 8px 0 0 8px; }
+#lockcard .f { max-width: 360px; }
+.code { font: 700 22px/1.4 ui-monospace, Consolas, monospace; letter-spacing: 2px; direction: ltr; text-align: center;
+  padding: 12px; border: 2px dashed var(--accent); border-radius: 8px; }
+/* PDF export: an off-screen copy of the dashboard, everything visible */
+.pdf-render { position: fixed; top: 0; left: -20000px; width: max-content; min-width: 1000px; background: #fff; padding: 16px; }
+.pdf-render .heat-wrap, .pdf-render .table-wrap { overflow: visible; }
+@media print {
+  body.printing-code * { visibility: hidden; }
+  body.printing-code #lk-codebox, body.printing-code #lk-codebox * { visibility: visible; }
+  body.printing-code #lk-codebox { position: absolute; top: 0; right: 0; left: 0; }
+}
